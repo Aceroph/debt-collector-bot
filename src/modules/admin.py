@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, Literal, Optional
 import discord
 from discord.ext import commands
 
+from utils import context
+
 if TYPE_CHECKING:
     from main import App
 
@@ -11,12 +13,25 @@ class Admin(commands.Cog):
     def __init__(self, bot: "App") -> None:
         self.bot = bot
 
+    @commands.is_owner()
+    @commands.command()
+    async def sql(self, ctx: context.Context, *, sql: str) -> None:
+        async with self.bot.pool.acquire() as con:
+            result = await con.fetch(sql)
+            output = "\n".join(
+                [", ".join([repr(x) for x in r.items()]) for r in result]
+            )
+            if len(output) == 0:
+                output = "No output"
+
+            await ctx.reply(output, mention_author=False)
+
     @commands.command()
     @commands.guild_only()
     @commands.is_owner()
     async def sync(
         self,
-        ctx: commands.Context,
+        ctx: context.Context,
         guilds: commands.Greedy[discord.Object],
         spec: Optional[Literal["~", "*", "^"]] = None,
     ) -> None:
