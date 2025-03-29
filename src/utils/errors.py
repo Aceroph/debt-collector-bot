@@ -37,13 +37,13 @@ async def global_error_handler(
     if isinstance(error, NoCurrenciesError):
         embed = discord.Embed(
             title="No currencies in this guild",
-            description="> Create or add one using `/currency`",
+            description="> Create or add one using `/currency create` or `/currency add`",
             color=discord.Color.red(),
         )
     elif isinstance(error, CurrencyNotFoundError):
         embed = discord.Embed(
             title="This currency does not exist",
-            description="> Create it using `/currency`",
+            description="> Create it using `/currency create`",
             color=discord.Color.red(),
         )
     elif isinstance(error, TooManyCurrenciesError):

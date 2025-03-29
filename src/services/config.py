@@ -192,10 +192,12 @@ class Config:
                     case "banker":
                         if isinstance(ctx, discord.Interaction):
                             currency: Currency = args[0].currency
-                        else:
+                        elif len(ctx.args) > 0:
                             currency: Currency = [
-                                arg for arg in ctx.args if isinstance(arg, Currency)
+                                arg for arg in ctx.args if hasattr(arg, "allowed_roles")
                             ][0]
+                        else:
+                            currency: Currency = ctx.kwargs["currency"]
 
                         if (
                             currency.owner_id == author.id

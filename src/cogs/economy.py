@@ -37,7 +37,7 @@ class Economy(commands.Cog):
         description = ""
         for currency_id, account in accounts.items():
             c = await Currency.get(ctx, currency_id)
-            description += f"**{c.name}s**\n"
+            description += f"**{c.name}{'' if c.name.endswith('s') else 's'}**\n"
             description += (
                 f"<:curved_line:1355629405925413044> `{account.wallet:,}` {c.icon}\n\n"
             )

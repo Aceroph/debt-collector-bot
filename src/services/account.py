@@ -9,6 +9,7 @@ from discord.ext.commands import NotOwner
 from services.config import Config
 from services.currency import Currency
 from utils.context import Context
+from utils.errors import NoCurrenciesError
 
 
 class Account:
@@ -104,6 +105,9 @@ class Account:
 
         async with ctx.bot.pool.acquire() as con:
             config = await Config.get(ctx)
+            if len(config.currencies) == 0:
+                raise NoCurrenciesError
+
             records = await con.fetch(
                 "SELECT * FROM banks WHERE userid = $1 AND currencyid = any($2::integer[]);",
                 account_id,
