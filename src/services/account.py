@@ -1,8 +1,10 @@
+import decimal
 from decimal import Decimal
-from typing import Dict, Self
+from typing import Dict, Optional, Self
 
 from asyncpg import Record
-from discord import Member
+from discord.abc import User
+from discord.ext.commands import NotOwner
 
 from services.config import Config
 from services.currency import Currency
@@ -36,8 +38,14 @@ class Account:
     def bank(self) -> Decimal:
         return self._bank
 
+    @property
+    def id(self) -> int:
+        return self._userid
+
     @classmethod
-    async def get(cls, ctx: Context, member: Member, currency: Currency | int) -> Self:
+    async def get(
+        cls, ctx: Context, user: User | int, currency: Currency | int
+    ) -> Self:
         """
         Returns an account of the specified currency.
 
@@ -45,8 +53,8 @@ class Account:
         ----------
         ctx : Context
             The context of the command.
-        member : Member
-            The member owning the requested account.
+        user : User | int
+            The user owning the requested account.
         currency : Currency | int
             The currency to look for.
 
@@ -55,56 +63,143 @@ class Account:
         Account
             The account of the specified currency.
         """
+        account_id = user if isinstance(user, int) else user.id
         currency_id = currency.id if isinstance(currency, Currency) else currency
+
         async with ctx.bot.pool.acquire() as con:
             record = await con.fetchrow(
-                "SELECT * FROM banks WHERE userid = $1 AND currencyid = $3;",
-                member.id,
+                "SELECT * FROM banks WHERE userid = $1 AND currencyid = $2;",
+                account_id,
                 currency_id,
             )
 
             # Create an account for each currency if the member has none
-            if len(record) == 0:
+            if not record:
                 record = await con.fetchrow(
                     "INSERT INTO banks (userid, currencyid) VALUES ($1, $2) RETURNING *;",
-                    member.id,
+                    account_id,
                     currency_id,
                 )
 
             return cls(ctx, record)
 
     @classmethod
-    async def get_all(cls, ctx: Context, member: Member) -> Dict[int, Self]:
+    async def get_all(cls, ctx: Context, user: User | int) -> Dict[int, Self]:
         """
-        Returns all accounts under the member's name
+        Returns all accounts under the user's name
 
         Parameters
         ----------
         ctx : Context
             The context of the command.
-        member : Member
-            The member owning the requested accounts.
+        user : User | int
+            The user owning the requested accounts.
 
         Returns
         -------
         List[Account]
-            A list of the member's accounts
+            A list of the user's accounts
         """
-        async with ctx.bot.pool.acquire() as con:
-            records = await con.fetch(
-                "SELECT * FROM banks WHERE userid = $1;",
-                member.id,
-            )
-            config = await Config.get(ctx)
+        account_id = user if isinstance(user, int) else user.id
 
-            # Create an account for each currency if the member has none
-            if len(records) < len(config.currencies):
+        async with ctx.bot.pool.acquire() as con:
+            config = await Config.get(ctx)
+            records = await con.fetch(
+                "SELECT * FROM banks WHERE userid = $1 AND currencyid = any($2::integer[]);",
+                account_id,
+                config.currencies,
+            )
+
+            # Create missing accounts
+            missing = config.currencies.copy()
+            for record in records:
+                id = record["currencyid"]
+                if id in missing:
+                    missing.remove(record["currencyid"])
+
+            for id in missing:
                 insert = await con.prepare(
                     "INSERT INTO banks (userid, currencyid) VALUES ($1, $2) RETURNING *;"
                 )
-                records = [
-                    await insert.fetchrow(ctx.author.id, c_id)
-                    for c_id in config.currencies
-                ]
+                records.append(await insert.fetchrow(account_id, id))
 
             return {r["currencyid"]: cls(ctx, r) for r in records}
+
+    async def add_money(
+        self,
+        amount: Decimal | float | int,
+        to_wallet: bool = True,
+        reason: Optional[str] = None,
+    ) -> None:
+        """
+        Adds money to an account.
+
+        Parameters
+        ----------
+        amount : Decimal | float | int
+            The amount to add, if negative, it will be removed.
+        to_wallet : bool = True
+            Whether to add the money to the account's wallet or bank.
+        reason : str
+            The reason for this transaction.
+        """
+        if isinstance(amount, float | int):
+            decimal.getcontext().prec = 2
+            amount = Decimal(amount)
+
+        async with self._ctx.bot.pool.acquire() as con:
+            if to_wallet:
+                record = await con.fetchrow(
+                    "UPDATE banks SET wallet = wallet + $1 WHERE currencyid = $2 AND userid = $3 RETURNING *;",
+                    amount,
+                    self._currency,
+                    self.id,
+                )
+            else:
+                record = await con.fetchrow(
+                    "UPDATE banks SET bank = bank + $1 WHERE currencyid = $2 AND userid = $3 RETURNING *;",
+                    amount,
+                    self._currency,
+                    self.id,
+                )
+
+            self.__init__(self._ctx, record)
+
+    async def transfer_money(
+        self,
+        amount: Decimal | float | int,
+        target: Optional[Self | User] = None,
+        to_wallet: bool = True,
+        reason: Optional[str] = None,
+    ) -> None:
+        """
+        Transfers money from an account to another.
+
+        Parameters
+        ----------
+        amount : Decimal | float | int
+            The amount to transfer
+        target : Optional[Self | User] = None
+            The account to transfer to, defaults to your own.
+        to_wallet : bool = True
+            Wheter to transfer from your wallet to your bank or vice-versa, only use this parameter if transfering to yourself.
+        reason : Optional[str]
+            The reason for the transfer
+        """
+        if isinstance(amount, float | int):
+            decimal.getcontext().prec = 2
+            amount = Decimal(amount)
+
+        if isinstance(target, User):
+            target = await self.__class__.get(self._ctx, target, self._currency)
+
+        if target and target.id != self.id:
+            if not to_wallet:
+                raise NotOwner("You can not transfer money to somebody else's bank !")
+
+            await self.add_money(-amount, True, reason)
+            await target.add_money(amount, True, reason)
+
+        else:
+            await self.add_money(-amount, not to_wallet, reason)
+            await self.add_money(amount, to_wallet, reason)

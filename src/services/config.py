@@ -1,14 +1,14 @@
 import functools
-import json
 from typing import Callable, List, Self
 
 import discord
 from asyncpg import Record
+from discord.ext import commands
 from discord.ext.commands import MissingPermissions
 
 from services.currency import Currency
 from utils.context import Context
-from utils.errors import NoCurrenciesError, TooManyCurrenciesError
+from utils.errors import NoCurrenciesError, SimilarCurrencyError, TooManyCurrenciesError
 
 
 class Config:
@@ -24,6 +24,10 @@ class Config:
     def __init__(self, ctx: "Context", record: Record) -> None:
         self._currencies = record["currencies"]
         self._ctx = ctx
+
+    @property
+    def max_currencies(self) -> int:
+        return 5 if self._ctx.guild else 1
 
     @property
     def currencies(self) -> List[int]:
@@ -48,7 +52,7 @@ class Config:
                 "SELECT * FROM currencies WHERE id = any($1::integer[]);",
                 self.currencies,
             )
-            return [Currency(r) for r in records]
+            return [Currency(self._ctx, r) for r in records]
 
     @classmethod
     async def get(cls, ctx: Context) -> Self:
@@ -97,29 +101,37 @@ class Config:
         TooManyCurrenciesError
             If you exceed the maximum amount of currencies per-guild.
         """
-        assert self._ctx.guild
         currency = (
             currency
             if isinstance(currency, Currency)
             else await Currency.get(self._ctx, currency)
         )
 
-        if not Context.is_sudo(self._ctx.message):
-            currencies = await self.get_currencies()
-            if len(currencies) == 5:
-                raise TooManyCurrenciesError
+        if any(
+            [
+                currency.icon == c.icon or currency.name == c.name
+                for c in await self.get_currencies()
+            ]
+        ):
+            raise SimilarCurrencyError
+
+        if (
+            not Context.is_sudo(self._ctx.message)
+            and len(self.currencies) == self.max_currencies
+        ):
+            raise TooManyCurrenciesError(self.max_currencies)
 
         async with self._ctx.bot.pool.acquire() as con:
             await con.execute(
                 """UPDATE guildconfigs SET currencies = array_append(currencies, $1) WHERE id = $2;""",
                 currency.id,
-                self._ctx.guild.id,
+                self._ctx.guild.id if self._ctx.guild else self._ctx.author.id,
             )
 
         embed = discord.Embed(
             title="Added currency to guild",
             description=f"> [+] ({currency.icon}) {currency.name}",
-            color=discord.Color.gold(),
+            color=Context.color(self._ctx.author),
         )
         await self._ctx.reply(embed=embed, mention_author=False)
 
@@ -140,7 +152,6 @@ class Config:
         NoCurrenciesError
             If the guild does not have any currencies or the currency is not even in the guild.
         """
-        assert self._ctx.guild
         currency = (
             currency
             if isinstance(currency, Currency)
@@ -155,13 +166,13 @@ class Config:
             await con.execute(
                 """UPDATE guildconfigs SET currencies = array_remove(currencies, $1) WHERE id = $2;""",
                 currency.id,
-                self._ctx.guild.id,
+                self._ctx.guild.id if self._ctx.guild else self._ctx.author.id,
             )
 
         embed = discord.Embed(
             title="Removed currency to guild",
             description=f"> [-] ({currency.icon}) {currency.name}",
-            color=discord.Color.gold(),
+            color=Context.color(self._ctx.author),
         )
         await self._ctx.reply(embed=embed, mention_author=False)
 
@@ -171,23 +182,26 @@ class Config:
             @functools.wraps(func)
             async def wrapper(*args, **kwargs):
                 ctx: Context | discord.Interaction = args[1]
-                author = ctx.author if isinstance(ctx, Context) else ctx.user
-                message = ctx.message if isinstance(ctx, Context) else None
+                author = (
+                    ctx.author
+                    if isinstance(ctx, Context | commands.Context)
+                    else ctx.user
+                )
 
                 match permission:
-                    case "manage_currencies":
-                        currency = None
-                        for arg in args:
-                            if isinstance(arg, Currency):
-                                currency = arg
-                        if not currency:
-                            currency = args[0].currency
+                    case "banker":
+                        if isinstance(ctx, discord.Interaction):
+                            currency: Currency = args[0].currency
+                        else:
+                            currency: Currency = [
+                                arg for arg in ctx.args if isinstance(arg, Currency)
+                            ][0]
 
-                        assert isinstance(author, discord.Member) and ctx.guild
                         if (
-                            ctx.guild.owner_id == author.id
-                            or Context.is_sudo(message)
-                            or any(
+                            currency.owner_id == author.id
+                            or Context.is_sudo(ctx.message)
+                            or isinstance(author, discord.Member)
+                            and any(
                                 [
                                     role in currency.allowed_roles
                                     for role in author.roles
@@ -196,7 +210,19 @@ class Config:
                         ):
                             await func(*args, **kwargs)
                         else:
+                            raise MissingPermissions(["banker"])
+
+                    case "manage_currencies":
+                        if (
+                            not ctx.guild
+                            or ctx.guild
+                            and ctx.guild.owner_id == author.id
+                            or Context.is_sudo(ctx.message)
+                        ):
+                            await func(*args, **kwargs)
+                        else:
                             raise MissingPermissions(["manage_currencies"])
+
                     case other_permission:
                         raise MissingPermissions([other_permission])
 

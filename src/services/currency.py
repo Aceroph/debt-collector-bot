@@ -31,7 +31,8 @@ class Currency:
         Whether or not the currency is hidden.
     """
 
-    def __init__(self, record: Record) -> None:
+    def __init__(self, ctx: Context, record: Record) -> None:
+        self._ctx = ctx
         self._id = record["id"]
         self._name = record["name"]
         self._icon = record["icon"]
@@ -41,7 +42,7 @@ class Currency:
         self._allowed_roles = record["allowed_roles"]
 
     def __str__(self) -> str:
-        return f"{self.icon} : {self.name}\n> ID {self.id}"
+        return f"`#{self.id}` {self.name} - {self.icon}"
 
     @property
     def owner_mention(self) -> str:
@@ -75,6 +76,18 @@ class Currency:
     def allowed_roles(self) -> List[int]:
         return self._allowed_roles
 
+    async def get_uses(self) -> int:
+        """
+        Returns
+        -------
+        int
+            The amount of accounts using this currency.
+        """
+        async with self._ctx.bot.pool.acquire() as con:
+            return await con.fetchval(
+                "SELECT COUNT(*) FROM banks WHERE currencyid = $1;", self.id
+            )
+
     @classmethod
     async def get(cls, ctx: Context, id: int) -> Self:
         """
@@ -101,4 +114,4 @@ class Currency:
             record = await con.fetchrow("SELECT * FROM currencies WHERE id = $1;", id)
             if not record:
                 raise CurrencyNotFoundError
-            return cls(record)
+            return cls(ctx, record)

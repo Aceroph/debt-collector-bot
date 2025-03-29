@@ -10,6 +10,7 @@ pkgs.mkShell {
       python-pkgs: with python-pkgs; [
         discordpy
         asyncpg
+        regex
       ]
     ))
   ];

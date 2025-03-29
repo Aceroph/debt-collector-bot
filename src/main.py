@@ -4,6 +4,7 @@ from typing import List
 
 import asyncpg
 import discord
+from asyncpg.connection import traceback
 from discord.ext import commands
 
 from cogs import EXTENSIONS
@@ -23,6 +24,7 @@ class App(commands.Bot):
         self.pool: asyncpg.Pool
         self.on_command_error = errors.global_error_handler
         self.logger = logging.getLogger("discord")
+        self.owner_id = 493107597281329185
 
     async def setup_hook(self) -> None:
         # Setup db pool
@@ -43,7 +45,13 @@ class App(commands.Bot):
                 await self.load_extension(ext)
                 self.logger.info("Loaded extension %s", ext)
             except Exception as err:
-                self.logger.error("Failed to load extension %s : %s", ext, err)
+                self.logger.error(
+                    f"Failed to load extension %s : %s",
+                    ext,
+                    "".join(
+                        traceback.format_exception(type(err), err, err.__traceback__)
+                    ),
+                )
 
 
 if __name__ == "__main__":
