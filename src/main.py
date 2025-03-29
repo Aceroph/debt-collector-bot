@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import List
 
@@ -5,7 +6,7 @@ import asyncpg
 import discord
 from discord.ext import commands
 
-from modules import EXTENSIONS
+from cogs import EXTENSIONS
 from utils import errors
 
 
@@ -21,6 +22,7 @@ class App(commands.Bot):
         super().__init__(prefix, intents=intents)
         self.pool: asyncpg.Pool
         self.on_command_error = errors.global_error_handler
+        self.logger = logging.getLogger("discord")
 
     async def setup_hook(self) -> None:
         # Setup db pool
@@ -39,8 +41,9 @@ class App(commands.Bot):
         for ext in EXTENSIONS:
             try:
                 await self.load_extension(ext)
-            except:
-                print(f"Failed to load extension {ext}")
+                self.logger.info("Loaded extension %s", ext)
+            except Exception as err:
+                self.logger.error("Failed to load extension %s : %s", ext, err)
 
 
 if __name__ == "__main__":

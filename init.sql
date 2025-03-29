@@ -1,5 +1,5 @@
 CREATE TABLE currencies (
-	id bigserial PRIMARY KEY,
+	id serial PRIMARY KEY,
 	name text NOT NULL,
 	owner bigint DEFAULT 0,
 	icon text DEFAULT '',
@@ -11,8 +11,8 @@ CREATE TABLE currencies (
 CREATE TABLE banks (
 	userid bigint NOT NULL,
 	currencyid integer NOT NULL,
-	wallet money DEFAULT 20.00,
-	bank money DEFAULT 0.00
+	wallet numeric(20, 2) DEFAULT 0.00,
+	bank numeric(20, 2 DEFAULT 0.00
 );
 
 CREATE TABLE transactions (
@@ -28,6 +28,6 @@ CREATE TABLE transactions (
 
 CREATE TABLE guildconfigs (
 	guildid bigint PRIMARY KEY,
-	config json DEFAULT '{"currencies": []}'
+	currencies integer[] DEFAULT '{}'
 );
 

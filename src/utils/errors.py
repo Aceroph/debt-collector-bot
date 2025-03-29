@@ -47,4 +47,4 @@ async def global_error_handler(ctx: commands.Context, error: CommandError) -> No
             color=discord.Color.red(),
         )
 
-    await ctx.reply(embed=embed, mention_author=False, delete_after=15)
+    await ctx.reply(embed=embed, mention_author=False, delete_after=40)

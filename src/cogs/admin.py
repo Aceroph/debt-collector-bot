@@ -10,13 +10,10 @@ if TYPE_CHECKING:
 
 
 class Admin(commands.Cog):
-    def __init__(self, bot: "App") -> None:
-        self.bot = bot
-
     @commands.is_owner()
     @commands.command()
     async def sql(self, ctx: context.Context, *, sql: str) -> None:
-        async with self.bot.pool.acquire() as con:
+        async with ctx.bot.pool.acquire() as con:
             result = await con.fetch(sql)
             output = "\n".join(
                 [", ".join([repr(x) for x in r.items()]) for r in result]
@@ -40,6 +37,7 @@ class Admin(commands.Cog):
             if spec == "~":
                 synced = await ctx.bot.tree.sync(guild=ctx.guild)
             elif spec == "*":
+                assert ctx.guild
                 ctx.bot.tree.copy_global_to(guild=ctx.guild)
                 synced = await ctx.bot.tree.sync(guild=ctx.guild)
             elif spec == "^":
@@ -67,4 +65,4 @@ class Admin(commands.Cog):
 
 
 async def setup(bot: "App") -> None:
-    await bot.add_cog(Admin(bot))
+    await bot.add_cog(Admin())
