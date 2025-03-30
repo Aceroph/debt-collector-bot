@@ -63,8 +63,6 @@ class CurrencyCog(commands.Cog):
                 ),
             )
 
-        await ctx.bot.update_cache()
-
         embed = discord.Embed(
             title="Created currency",
             description=f"> {currency}",

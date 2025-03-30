@@ -64,7 +64,7 @@ class Economy(commands.Cog):
     async def update_account(
         self,
         ctx: Context,
-        amount: float,
+        amount: int,
         currency: CurrencyConverter,
         user: Optional[Member | User] = None,
     ) -> None:

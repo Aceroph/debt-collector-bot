@@ -11,15 +11,15 @@ CREATE TABLE currencies (
 CREATE TABLE banks (
 	userid bigint NOT NULL,
 	currencyid integer NOT NULL,
-	wallet numeric(20, 2) DEFAULT 0.00,
-	bank numeric(20, 2 DEFAULT 0.00
+	wallet integer DEFAULT 0.00,
+	bank integer DEFAULT 0.00
 );
 
 CREATE TABLE transactions (
 	userid bigint PRIMARY KEY,
 	guildid bigint NOT NULL,
 	currencyid integer NOT NULL,
-	amount money NOT NULL,
+	amount integer NOT NULL,
 	targetid bigint DEFAULT 0,
 	reason text NOT NULL,
 	reversible boolean DEFAULT FALSE,

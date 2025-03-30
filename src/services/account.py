@@ -1,5 +1,3 @@
-import decimal
-from decimal import Decimal
 from typing import Dict, Optional, Self
 
 from asyncpg import Record
@@ -32,11 +30,11 @@ class Account:
         self._currency = record["currencyid"]
 
     @property
-    def wallet(self) -> Decimal:
+    def wallet(self) -> int:
         return self._wallet
 
     @property
-    def bank(self) -> Decimal:
+    def bank(self) -> int:
         return self._bank
 
     @property
@@ -131,7 +129,7 @@ class Account:
 
     async def add_money(
         self,
-        amount: Decimal | float | int,
+        amount: int,
         to_wallet: bool = True,
         reason: Optional[str] = None,
     ) -> None:
@@ -147,10 +145,6 @@ class Account:
         reason : str
             The reason for this transaction.
         """
-        if isinstance(amount, float | int):
-            decimal.getcontext().prec = 2
-            amount = Decimal(amount)
-
         async with self._ctx.bot.pool.acquire() as con:
             if to_wallet:
                 record = await con.fetchrow(
@@ -171,7 +165,7 @@ class Account:
 
     async def transfer_money(
         self,
-        amount: Decimal | float | int,
+        amount: int,
         target: Optional[Self | User] = None,
         to_wallet: bool = True,
         reason: Optional[str] = None,
@@ -190,10 +184,6 @@ class Account:
         reason : Optional[str]
             The reason for the transfer
         """
-        if isinstance(amount, float | int):
-            decimal.getcontext().prec = 2
-            amount = Decimal(amount)
-
         if isinstance(target, User):
             target = await self.__class__.get(self._ctx, target, self._currency)
 
