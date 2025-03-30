@@ -9,7 +9,7 @@ from services.account import Account
 from services.config import Config
 from services.currency import Currency
 from utils.context import Context
-from utils.converters import CurrencyConverter
+from utils.converters import CurrencyConverter, currency_autocomplete
 
 if TYPE_CHECKING:
     from main import App
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 class Economy(commands.Cog):
     @commands.hybrid_command(aliases=["bal", "money"])
+    @discord.app_commands.autocomplete(currency=currency_autocomplete)
     @discord.app_commands.describe(
         user="The one you're trying to spy on.", currency="The currency to show only."
     )
@@ -53,6 +54,7 @@ class Economy(commands.Cog):
         await ctx.reply(embed=embed, mention_author=False)
 
     @commands.hybrid_command(name="update", aliases=["add", "remove"])
+    @discord.app_commands.autocomplete(currency=currency_autocomplete)
     @discord.app_commands.describe(
         amount="The amount of money to add/remove.",
         currency="The currency affected.",

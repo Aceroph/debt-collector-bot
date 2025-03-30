@@ -5,7 +5,7 @@ from typing import List
 import asyncpg
 import discord
 from asyncpg.connection import traceback
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from cogs import EXTENSIONS
 from utils import errors
@@ -13,9 +13,9 @@ from utils import errors
 
 def prefix(bot: "App", msg: discord.Message) -> List[str]:
     if msg.author.id == bot.owner_id:
-        return ["$", "sudo ", "Sudo ", "SUDO "]
+        return [bot.base_prefix, "sudo ", "Sudo ", "SUDO "]
     else:
-        return ["$"]
+        return [bot.base_prefix]
 
 
 class App(commands.Bot):
@@ -25,6 +25,8 @@ class App(commands.Bot):
         self.on_command_error = errors.global_error_handler
         self.logger = logging.getLogger("discord")
         self.owner_id = 493107597281329185
+        self.base_prefix = os.environ.get("BOT_PREFIX", "$")
+        self.cached_currencies = []
 
     async def setup_hook(self) -> None:
         # Setup db pool

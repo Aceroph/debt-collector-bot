@@ -71,6 +71,8 @@ class DeleteCurrencyView(ManageCurrencyView):
                 "UPDATE guildconfigs SET currencies = array_remove(currencies, $1);",
                 self.currency.id,
             )
+        await self._ctx.bot.update_cache()
+
         if interaction.message:
             await interaction.message.delete()
 

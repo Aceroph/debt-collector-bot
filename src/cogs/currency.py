@@ -9,7 +9,7 @@ from discord.ext import commands
 from services.config import Config
 from services.currency import Currency
 from utils.context import Context
-from utils.converters import CurrencyConverter
+from utils.converters import CurrencyConverter, currency_autocomplete
 from utils.errors import NoCurrenciesError
 from views.currency_management import AddCurrencyView, DeleteCurrencyView
 
@@ -63,6 +63,8 @@ class CurrencyCog(commands.Cog):
                 ),
             )
 
+        await ctx.bot.update_cache()
+
         embed = discord.Embed(
             title="Created currency",
             description=f"> {currency}",
@@ -80,7 +82,7 @@ class CurrencyCog(commands.Cog):
 
     @currencies.command("delete")
     @discord.app_commands.describe(currency="The ID of the currency to delete.")
-    async def currency_delete(self, ctx: Context, currency: CurrencyConverter(is_owned=True)) -> None:  # type: ignore
+    async def currency_delete(self, ctx: Context, currency: CurrencyConverter("owned")) -> None:  # type: ignore
         """Deletes a currency you created."""
         assert isinstance(currency, Currency)
         if not (currency.owner_id == ctx.author.id or Context.is_sudo(ctx.message)):
@@ -106,16 +108,18 @@ class CurrencyCog(commands.Cog):
     @Config.has_permission("manage_currencies")
     @currencies.command("add")
     @discord.app_commands.describe(currency="The ID of the currency to add.")
-    async def currencies_add(self, ctx: Context, currency: int) -> None:
+    async def currencies_add(self, ctx: Context, currency: CurrencyConverter) -> None:
         """Adds an existing currency to the current server, with a limit of 5."""
         config = await Config.get(ctx)
+        assert isinstance(currency, Currency)
         await config.add_currency(currency)
 
     @Config.has_permission("manage_currencies")
     @currencies.command("remove")
+    @discord.app_commands.autocomplete(currency=currency_autocomplete)
     @discord.app_commands.describe(currency="The ID of the currency to remove.")
     async def currencies_remove(
-        self, ctx: Context, currency: CurrencyConverter
+        self, ctx: Context, currency: CurrencyConverter("guild")  # type: ignore
     ) -> None:
         """Removes an existing currency to the current server."""
         config = await Config.get(ctx)

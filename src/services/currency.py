@@ -39,7 +39,7 @@ class Currency:
         self._owner = record["owner"]
         self._hidden = record["hidden"]
         self._created_at = record["created_at"]
-        self._allowed_roles = record["allowed_roles"]
+        self._allowed_roles = record["allowed_roles"] or []
 
     def __str__(self) -> str:
         return f"`#{self.id}` {self.name} - {self.icon}"

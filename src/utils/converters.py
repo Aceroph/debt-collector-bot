@@ -1,3 +1,8 @@
+from typing import List, Literal
+
+import discord
+from asyncpg import Pool
+from discord import app_commands
 from discord.ext import commands
 
 from services.config import Config
@@ -7,32 +12,59 @@ from utils.errors import CurrencyNotFoundError
 
 
 class CurrencyConverter(commands.Converter):
-    def __init__(self, is_owned: bool = False) -> None:
-        self._is_owned = is_owned
+    def __init__(self, scope: Literal["owned", "guild", "all"] = "all") -> None:
+        self.scope = scope
 
     async def convert(self, ctx: Context, argument: str) -> Currency:  # type: ignore
         async with ctx.bot.pool.acquire() as con:
             config = await Config.get(ctx)
-            pattern = f"%{argument}%"
-            if self._is_owned:
-                record = await con.fetchrow(
-                    "SELECT * FROM currencies WHERE owner = $1 AND ( icon ILIKE $2 OR name ILIKE $3 );",
-                    ctx.author.id,
-                    argument,
-                    pattern,
-                )
-            else:
-                record = await con.fetchrow(
-                    "SELECT * FROM currencies WHERE id = any($1::integer[]) AND ( icon ILIKE $2 OR name ILIKE $3 );",
-                    config.currencies,
-                    argument,
-                    pattern,
-                )
+
+            try:
+                return await Currency.get(ctx, int(argument))
+            except ValueError:
+                pass
+
+            match self.scope:
+                case "owned":
+                    record = await con.fetchrow(
+                        "SELECT * FROM currencies WHERE owner = $1 AND (icon ILIKE $1 OR name ILIKE $1);",
+                        ctx.author.id,
+                    )
+
+                case "guild":
+                    record = await con.fetchrow(
+                        "SELECT * FROM currencies WHERE id = any($1::integer[]) AND (icon ILIKE $1 OR name ILIKE $1);",
+                        config.currencies,
+                    )
+
+                case "all":
+                    record = await con.fetchrow(
+                        "SELECT * FROM currencies AND (icon ILIKE $1 OR name ILIKE $1);",
+                    )
+
+                case _:
+                    record = None
 
             if not record:
-                try:
-                    return await Currency.get(ctx, int(argument))
-                except ValueError:
-                    raise CurrencyNotFoundError
+                raise CurrencyNotFoundError
 
             return Currency(ctx, record)
+
+
+async def currency_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> List[app_commands.Choice[str]]:
+    pattern = f"%{current}%"
+    pool: Pool = getattr(interaction.client, "pool")
+    async with pool.acquire() as con:
+        records = await con.fetch(
+            "SELECT id, name FROM currencies WHERE name ILIKE $1 OR icon ILIKE $2 LIMIT 25;",
+            pattern,
+            current,
+        )
+
+        return [
+            app_commands.Choice(name=record["name"], value=str(record["id"]))
+            for record in records
+        ]
