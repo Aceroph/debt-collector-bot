@@ -10,6 +10,7 @@ from services.config import Config
 from services.currency import Currency
 from utils.context import Context
 from utils.converters import CurrencyConverter, currency_autocomplete
+from utils.errors import NotEnoughMoneyError
 
 if TYPE_CHECKING:
     from main import App
@@ -77,11 +78,39 @@ class Economy(commands.Cog):
 
         embed = discord.Embed(
             title="Printed money" if amount > 0 else "Burned money",
-            description=f"> `{old_money:,}` → `{account.wallet:,}` {currency.icon}",
+            description=f"> {old_money:,} → {account.wallet:,} {currency.icon}",
             color=Context.color(_user),
             timestamp=datetime.datetime.now(),
         )
         embed.set_thumbnail(url=_user.display_avatar.url)
+
+        await ctx.reply(embed=embed, mention_author=False)
+
+    @commands.hybrid_command()
+    @discord.app_commands.autocomplete(currency=currency_autocomplete)
+    @discord.app_commands.describe(
+        amount="The amount of money to spend.",
+        currency="The currency to spend.",
+    )
+    async def spend(
+        self, ctx: Context, amount: int, currency: CurrencyConverter
+    ) -> None:
+        """Spends money, if you have it."""
+        assert isinstance(currency, Currency)
+        account = await Account.get(ctx, ctx.author, currency)
+        old_money = account.wallet
+        if abs(amount) > old_money:
+            raise NotEnoughMoneyError(old_money - amount, currency.icon)
+
+        await account.add_money(-abs(amount), True, reason="spent")
+
+        embed = discord.Embed(
+            title="Spent money",
+            description=f"> {old_money:,}  → {account.wallet:,} {currency.icon}",
+            color=Context.color(ctx.author),
+            timestamp=datetime.datetime.now(),
+        )
+        embed.set_thumbnail(url=ctx.author.display_avatar.url)
 
         await ctx.reply(embed=embed, mention_author=False)
 

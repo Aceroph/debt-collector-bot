@@ -24,7 +24,9 @@ class TooManyCurrenciesError(CommandError):
 
 
 class NotEnoughMoneyError(CommandError):
-    pass
+    def __init__(self, amount: int, icon: str) -> None:
+        self.amount = amount
+        self.icon = icon
 
 
 class SimilarCurrencyError(CommandError):
@@ -44,6 +46,12 @@ async def global_error_handler(
         embed = discord.Embed(
             title="This currency does not exist",
             description="> Create it using `/currency create`",
+            color=discord.Color.red(),
+        )
+    elif isinstance(error, NotEnoughMoneyError):
+        embed = discord.Embed(
+            title="You do not have enough money",
+            description=f"> You are missing {error.amount:,} {error.icon}",
             color=discord.Color.red(),
         )
     elif isinstance(error, TooManyCurrenciesError):
