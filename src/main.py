@@ -5,7 +5,7 @@ from typing import List
 import asyncpg
 import discord
 from asyncpg.connection import traceback
-from discord.ext import commands, tasks
+from discord.ext import commands
 
 from cogs import EXTENSIONS
 from utils import errors
