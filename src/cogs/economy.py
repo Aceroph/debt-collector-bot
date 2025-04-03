@@ -8,12 +8,11 @@ from discord.ext import commands
 from services.account import Account
 from services.config import Config
 from services.currency import Currency
-from utils.context import Context
-from utils.converters import CurrencyConverter, currency_autocomplete
+from utils import CurrencyConverter, currency_autocomplete, get_accent_color
 from utils.errors import NotEnoughMoneyError
 
 if TYPE_CHECKING:
-    from main import App
+    from main import DebtBot
 
 
 class Economy(commands.Cog):
@@ -24,7 +23,7 @@ class Economy(commands.Cog):
     )
     async def balance(
         self,
-        ctx: Context,
+        ctx: commands.Context["DebtBot"],
         user: Optional[Member | User] = None,
         currency: CurrencyConverter | None = None,
     ) -> None:
@@ -47,7 +46,7 @@ class Economy(commands.Cog):
         embed = discord.Embed(
             title=f"{_user.display_name}'s balance{'' if currency else 's'}",
             description=description,
-            color=Context.color(_user),
+            color=get_accent_color(_user),
             timestamp=datetime.datetime.now(),
         )
         embed.set_thumbnail(url=_user.display_avatar.url)
@@ -64,7 +63,7 @@ class Economy(commands.Cog):
     @Config.has_permission("banker")
     async def update_account(
         self,
-        ctx: Context,
+        ctx: commands.Context["DebtBot"],
         amount: int,
         currency: CurrencyConverter,
         user: Optional[Member | User] = None,
@@ -79,7 +78,7 @@ class Economy(commands.Cog):
         embed = discord.Embed(
             title="Printed money" if amount > 0 else "Burned money",
             description=f"> {old_money:,} → {account.wallet:,} {currency.icon}",
-            color=Context.color(_user),
+            color=get_accent_color(_user),
             timestamp=datetime.datetime.now(),
         )
         embed.set_thumbnail(url=_user.display_avatar.url)
@@ -93,7 +92,7 @@ class Economy(commands.Cog):
         currency="The currency to spend.",
     )
     async def spend(
-        self, ctx: Context, amount: int, currency: CurrencyConverter
+        self, ctx: commands.Context["DebtBot"], amount: int, currency: CurrencyConverter
     ) -> None:
         """Spends money, if you have it."""
         assert isinstance(currency, Currency)
@@ -107,7 +106,7 @@ class Economy(commands.Cog):
         embed = discord.Embed(
             title="Spent money",
             description=f"> {old_money:,}  → {account.wallet:,} {currency.icon}",
-            color=Context.color(ctx.author),
+            color=get_accent_color(ctx.author),
             timestamp=datetime.datetime.now(),
         )
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
@@ -115,5 +114,5 @@ class Economy(commands.Cog):
         await ctx.reply(embed=embed, mention_author=False)
 
 
-async def setup(bot: "App") -> None:
+async def setup(bot: "DebtBot") -> None:
     await bot.add_cog(Economy())

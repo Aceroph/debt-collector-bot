@@ -1,14 +1,17 @@
 import functools
-from typing import Callable, List, Self
+from typing import TYPE_CHECKING, Callable, List, Self
 
 import discord
 from asyncpg import Record
 from discord.ext import commands
 from discord.ext.commands import MissingPermissions
 
+import utils
 from services.currency import Currency
-from utils.context import Context
 from utils.errors import NoCurrenciesError, SimilarCurrencyError, TooManyCurrenciesError
+
+if TYPE_CHECKING:
+    from main import DebtBot
 
 
 class Config:
@@ -21,7 +24,7 @@ class Config:
         The currencies in the guild.
     """
 
-    def __init__(self, ctx: "Context", record: Record) -> None:
+    def __init__(self, ctx: commands.Context["DebtBot"], record: Record) -> None:
         self._currencies = record["currencies"]
         self._ctx = ctx
 
@@ -55,7 +58,7 @@ class Config:
             return [Currency(self._ctx, r) for r in records]
 
     @classmethod
-    async def get(cls, ctx: Context) -> Self:
+    async def get(cls, ctx: commands.Context["DebtBot"]) -> Self:
         """
         Gets or creates a config for the guild.
 
@@ -115,10 +118,7 @@ class Config:
         ):
             raise SimilarCurrencyError
 
-        if (
-            not Context.is_sudo(self._ctx.message)
-            and len(self.currencies) == self.max_currencies
-        ):
+        if not utils.is_sudo(self._ctx) and len(self.currencies) == self.max_currencies:
             raise TooManyCurrenciesError(self.max_currencies)
 
         async with self._ctx.bot.pool.acquire() as con:
@@ -131,7 +131,7 @@ class Config:
         embed = discord.Embed(
             title="Added currency to guild",
             description=f"> [+] ({currency.icon}) {currency.name}",
-            color=Context.color(self._ctx.author),
+            color=utils.get_accent_color(self._ctx.author),
         )
         await self._ctx.reply(embed=embed, mention_author=False)
 
@@ -172,7 +172,7 @@ class Config:
         embed = discord.Embed(
             title="Removed currency to guild",
             description=f"> [-] ({currency.icon}) {currency.name}",
-            color=Context.color(self._ctx.author),
+            color=utils.get_accent_color(self._ctx.author),
         )
         await self._ctx.reply(embed=embed, mention_author=False)
 
@@ -181,12 +181,8 @@ class Config:
         def decorator(func: Callable):
             @functools.wraps(func)
             async def wrapper(*args, **kwargs):
-                ctx: Context | discord.Interaction = args[1]
-                author = (
-                    ctx.author
-                    if isinstance(ctx, Context | commands.Context)
-                    else ctx.user
-                )
+                ctx: commands.Context["DebtBot"] | discord.Interaction = args[1]
+                author = ctx.author if isinstance(ctx, commands.Context) else ctx.user
 
                 match permission:
                     case "banker":
@@ -201,7 +197,8 @@ class Config:
 
                         if (
                             currency.owner_id == author.id
-                            or Context.is_sudo(ctx.message)
+                            or isinstance(ctx, commands.Context)
+                            and utils.is_sudo(ctx)
                             or isinstance(author, discord.Member)
                             and any(
                                 [
@@ -219,7 +216,8 @@ class Config:
                             not ctx.guild
                             or ctx.guild
                             and ctx.guild.owner_id == author.id
-                            or Context.is_sudo(ctx.message)
+                            or isinstance(ctx, commands.Context)
+                            and utils.is_sudo(ctx)
                         ):
                             await func(*args, **kwargs)
                         else:

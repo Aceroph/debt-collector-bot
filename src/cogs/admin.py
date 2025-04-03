@@ -3,16 +3,14 @@ from typing import TYPE_CHECKING, Literal, Optional
 import discord
 from discord.ext import commands
 
-from utils import context
-
 if TYPE_CHECKING:
-    from main import App
+    from main import DebtBot
 
 
 class Admin(commands.Cog):
     @commands.is_owner()
     @commands.command()
-    async def sql(self, ctx: context.Context, *, sql: str) -> None:
+    async def sql(self, ctx: commands.Context["DebtBot"], *, sql: str) -> None:
         async with ctx.bot.pool.acquire() as con:
             result = await con.fetch(sql)
             output = "\n".join(
@@ -28,7 +26,7 @@ class Admin(commands.Cog):
     @commands.is_owner()
     async def sync(
         self,
-        ctx: context.Context,
+        ctx: commands.Context["DebtBot"],
         guilds: commands.Greedy[discord.Object],
         spec: Optional[Literal["~", "*", "^"]] = None,
     ) -> None:
@@ -64,5 +62,5 @@ class Admin(commands.Cog):
         await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
 
 
-async def setup(bot: "App") -> None:
+async def setup(bot: "DebtBot") -> None:
     await bot.add_cog(Admin())

@@ -11,20 +11,21 @@ from cogs import EXTENSIONS
 from utils import errors
 
 
-def prefix(bot: "App", msg: discord.Message) -> List[str]:
+def prefix(bot: "DebtBot", msg: discord.Message) -> List[str]:
     if msg.author.id == bot.owner_id:
         return [bot.base_prefix, "sudo ", "Sudo ", "SUDO "]
     else:
         return [bot.base_prefix]
 
 
-class App(commands.Bot):
+class DebtBot(commands.Bot):
+    owner_id = 493107597281329185
+
     def __init__(self, intents: discord.Intents) -> None:
         super().__init__(prefix, intents=intents)
         self.pool: asyncpg.Pool
         self.on_command_error = errors.global_error_handler
         self.logger = logging.getLogger("discord")
-        self.owner_id = 493107597281329185
         self.base_prefix = os.environ.get("BOT_PREFIX", "$")
         self.cached_currencies = []
 
@@ -60,7 +61,7 @@ if __name__ == "__main__":
     intents = discord.Intents.default()
     intents.message_content = True
 
-    bot = App(intents=intents)
+    bot = DebtBot(intents=intents)
 
     token = os.environ.get("TOKEN")
     if not token:

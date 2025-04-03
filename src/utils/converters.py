@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import TYPE_CHECKING, List, Literal
 
 import discord
 from asyncpg import Pool
@@ -7,15 +7,19 @@ from discord.ext import commands
 
 from services.config import Config
 from services.currency import Currency
-from utils.context import Context
 from utils.errors import CurrencyNotFoundError
+
+if TYPE_CHECKING:
+    from main import DebtBot
 
 
 class CurrencyConverter(commands.Converter):
     def __init__(self, scope: Literal["owned", "guild", "all"] = "all") -> None:
         self.scope = scope
 
-    async def convert(self, ctx: Context, argument: str) -> Currency:  # type: ignore
+    async def convert(
+        self, ctx: commands.Context["DebtBot"], argument: str
+    ) -> Currency:
         async with ctx.bot.pool.acquire() as con:
             config = await Config.get(ctx)
 

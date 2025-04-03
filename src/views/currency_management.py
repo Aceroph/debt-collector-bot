@@ -1,17 +1,19 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import discord
-from discord.ext.commands import NotOwner
+from discord.ext import commands
 from discord.ui import Item
 
 from services.config import Config
 from services.currency import Currency
 from utils import errors
-from utils.context import Context
+
+if TYPE_CHECKING:
+    from main import DebtBot
 
 
 class ManageCurrencyView(discord.ui.View):
-    def __init__(self, ctx: Context, currency: Currency) -> None:
+    def __init__(self, ctx: commands.Context["DebtBot"], currency: Currency) -> None:
         super().__init__(timeout=40)
         self._ctx = ctx
         self._currency = currency
@@ -27,7 +29,7 @@ class ManageCurrencyView(discord.ui.View):
 
 
 class AddCurrencyView(ManageCurrencyView):
-    def __init__(self, ctx: Context, currency: Currency):
+    def __init__(self, ctx: commands.Context["DebtBot"], currency: Currency):
         super().__init__(ctx, currency)
 
     @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
@@ -42,14 +44,14 @@ class AddCurrencyView(ManageCurrencyView):
     @discord.ui.button(label="No", style=discord.ButtonStyle.red)
     async def no(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
         if interaction.user.id != self._ctx.author.id:
-            raise NotOwner("You do not own this currency")
+            raise commands.NotOwner("You do not own this currency")
 
         if interaction.message:
             await interaction.message.delete()
 
 
 class DeleteCurrencyView(ManageCurrencyView):
-    def __init__(self, ctx: Context, currency: Currency):
+    def __init__(self, ctx: commands.Context["DebtBot"], currency: Currency):
         super().__init__(ctx, currency)
 
     @discord.ui.button(label="Delete", style=discord.ButtonStyle.red)

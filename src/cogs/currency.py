@@ -8,19 +8,18 @@ from discord.ext import commands
 
 from services.config import Config
 from services.currency import Currency
-from utils.context import Context
-from utils.converters import CurrencyConverter, currency_autocomplete
+from utils import CurrencyConverter, currency_autocomplete, get_accent_color, is_sudo
 from utils.errors import NoCurrenciesError
 from views.currency_management import AddCurrencyView, DeleteCurrencyView
 
 if TYPE_CHECKING:
-    from main import App
+    from main import DebtBot
 
 
 class CurrencyCog(commands.Cog):
     @commands.guild_only()
     @commands.hybrid_group(aliases=["currency"], fallback="list")
-    async def currencies(self, ctx: Context) -> None:
+    async def currencies(self, ctx: commands.Context["DebtBot"]) -> None:
         """Lists the currencies of this server."""
         assert ctx.guild
         config = await Config.get(ctx)
@@ -34,7 +33,7 @@ class CurrencyCog(commands.Cog):
         embed = discord.Embed(
             title="Currencies in this server",
             description=description,
-            color=Context.color(ctx.author),
+            color=get_accent_color(ctx.author),
             timestamp=datetime.datetime.now(),
         )
         embed.set_footer(text=f"{len(config.currencies)}/{config.max_currencies}")
@@ -45,7 +44,9 @@ class CurrencyCog(commands.Cog):
     @discord.app_commands.describe(
         name="The name of your currency.", icon="The icon for your currency."
     )
-    async def currencies_create(self, ctx: Context, name: str, icon: str) -> None:
+    async def currencies_create(
+        self, ctx: commands.Context["DebtBot"], name: str, icon: str
+    ) -> None:
         """Creates a new currency to be later added to a server."""
         # Check if icon is valid
         if not regex.match(r"<a?:.+?:\d{18}>|.{1,4}", icon):
@@ -66,7 +67,7 @@ class CurrencyCog(commands.Cog):
         embed = discord.Embed(
             title="Created currency",
             description=f"> {currency}",
-            color=Context.color(ctx.author),
+            color=get_accent_color(ctx.author),
         )
         await ctx.reply(embed=embed, mention_author=False)
 
@@ -80,10 +81,10 @@ class CurrencyCog(commands.Cog):
 
     @currencies.command("delete")
     @discord.app_commands.describe(currency="The ID of the currency to delete.")
-    async def currency_delete(self, ctx: Context, currency: CurrencyConverter("owned")) -> None:  # type: ignore
+    async def currency_delete(self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter("owned")) -> None:  # type: ignore
         """Deletes a currency you created."""
         assert isinstance(currency, Currency)
-        if not (currency.owner_id == ctx.author.id or Context.is_sudo(ctx.message)):
+        if not (currency.owner_id == ctx.author.id or is_sudo(ctx)):
             raise commands.NotOwner
 
         uses = await currency.get_uses()
@@ -94,7 +95,7 @@ class CurrencyCog(commands.Cog):
                 ">>> Are you sure you want to do this ?\n"
                 f"{uses} accounts are going to get deleted."
             ),
-            color=Context.color(ctx.author),
+            color=get_accent_color(ctx.author),
         )
         assert isinstance(ctx.author, discord.Member)
         await ctx.reply(
@@ -106,7 +107,9 @@ class CurrencyCog(commands.Cog):
     @Config.has_permission("manage_currencies")
     @currencies.command("add")
     @discord.app_commands.describe(currency="The ID of the currency to add.")
-    async def currencies_add(self, ctx: Context, currency: CurrencyConverter) -> None:
+    async def currencies_add(
+        self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter
+    ) -> None:
         """Adds an existing currency to the current server, with a limit of 5."""
         config = await Config.get(ctx)
         assert isinstance(currency, Currency)
@@ -117,7 +120,7 @@ class CurrencyCog(commands.Cog):
     @discord.app_commands.autocomplete(currency=currency_autocomplete)
     @discord.app_commands.describe(currency="The ID of the currency to remove.")
     async def currencies_remove(
-        self, ctx: Context, currency: CurrencyConverter("guild")  # type: ignore
+        self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter("guild")  # type: ignore
     ) -> None:
         """Removes an existing currency to the current server."""
         config = await Config.get(ctx)
@@ -127,7 +130,7 @@ class CurrencyCog(commands.Cog):
     @currencies.command("search")
     @discord.app_commands.describe(query="Your searching query.")
     async def currencies_search(
-        self, ctx: Context, *, query: str | None = None
+        self, ctx: commands.Context["DebtBot"], *, query: str | None = None
     ) -> None:
         """Searches currencies based on their name"""
         async with ctx.bot.pool.acquire() as con:
@@ -148,14 +151,16 @@ class CurrencyCog(commands.Cog):
         embed = discord.Embed(
             title="\N{RIGHT-POINTING MAGNIFYING GLASS} The Money Finder",
             description=description,
-            color=Context.color(ctx.author),
+            color=get_accent_color(ctx.author),
         )
 
         await ctx.reply(embed=embed, mention_author=False)
 
     @currencies.command("info")
     @discord.app_commands.describe(currency="The currency to look into.")
-    async def currencies_info(self, ctx: Context, currency: CurrencyConverter) -> None:
+    async def currencies_info(
+        self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter
+    ) -> None:
         """Salvages info on currencies"""
         assert isinstance(currency, Currency)
         uses = await currency.get_uses()
@@ -171,11 +176,11 @@ class CurrencyCog(commands.Cog):
                 f"Used by {uses} users\n"
                 f"Created {currency.created_at}\n"
             ),
-            color=Context.color(ctx.author),
+            color=get_accent_color(ctx.author),
         )
         embed.set_footer(text=f"ID: {currency.id}")
         await ctx.reply(embed=embed, mention_author=False)
 
 
-async def setup(bot: "App") -> None:
+async def setup(bot: "DebtBot") -> None:
     await bot.add_cog(CurrencyCog())

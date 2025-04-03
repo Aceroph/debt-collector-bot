@@ -1,10 +1,13 @@
-from typing import List, Self
+from typing import TYPE_CHECKING, List, Self
 
 import discord
 from asyncpg import Record
+from discord.ext import commands
 
-from utils.context import Context
 from utils.errors import CurrencyNotFoundError
+
+if TYPE_CHECKING:
+    from main import DebtBot
 
 
 class Currency:
@@ -31,7 +34,7 @@ class Currency:
         Whether or not the currency is hidden.
     """
 
-    def __init__(self, ctx: Context, record: Record) -> None:
+    def __init__(self, ctx: commands.Context["DebtBot"], record: Record) -> None:
         self._ctx = ctx
         self._id = record["id"]
         self._name = record["name"]
@@ -89,7 +92,7 @@ class Currency:
             )
 
     @classmethod
-    async def get(cls, ctx: Context, id: int) -> Self:
+    async def get(cls, ctx: commands.Context["DebtBot"], id: int) -> Self:
         """
         Gets a currency.
 

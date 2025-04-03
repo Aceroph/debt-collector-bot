@@ -1,13 +1,16 @@
-from typing import Dict, Optional, Self
+from typing import TYPE_CHECKING, Dict, Optional, Self
 
 from asyncpg import Record
 from discord.abc import User
+from discord.ext import commands
 from discord.ext.commands import NotOwner
 
 from services.config import Config
 from services.currency import Currency
-from utils.context import Context
 from utils.errors import NoCurrenciesError
+
+if TYPE_CHECKING:
+    from main import DebtBot
 
 
 class Account:
@@ -22,7 +25,7 @@ class Account:
         The current amount of money in their bank.
     """
 
-    def __init__(self, ctx: Context, record: Record) -> None:
+    def __init__(self, ctx: commands.Context["DebtBot"], record: Record) -> None:
         self._ctx = ctx
         self._wallet = record["wallet"]
         self._bank = record["bank"]
@@ -43,7 +46,10 @@ class Account:
 
     @classmethod
     async def get(
-        cls, ctx: Context, user: User | int, currency: Currency | int
+        cls,
+        ctx: commands.Context["DebtBot"],
+        user: User | int,
+        currency: Currency | int,
     ) -> Self:
         """
         Returns an account of the specified currency.
@@ -83,7 +89,9 @@ class Account:
             return cls(ctx, record)
 
     @classmethod
-    async def get_all(cls, ctx: Context, user: User | int) -> Dict[int, Self]:
+    async def get_all(
+        cls, ctx: commands.Context["DebtBot"], user: User | int
+    ) -> Dict[int, Self]:
         """
         Returns all accounts under the user's name
 
