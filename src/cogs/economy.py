@@ -5,9 +5,7 @@ import discord
 from discord import Member, User
 from discord.ext import commands
 
-from services.account import Account
-from services.config import Config
-from services.currency import Currency
+from services import Account, Config, Currency
 from utils import CurrencyConverter, currency_autocomplete, get_accent_color
 from utils.errors import NotEnoughMoneyError
 

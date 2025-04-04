@@ -118,3 +118,27 @@ class Currency:
             if not record:
                 raise CurrencyNotFoundError
             return cls(ctx, record)
+
+    @classmethod
+    async def get_user_currencies(
+        cls, ctx: commands.Context["DebtBot"], user: discord.User | int
+    ) -> List[Self]:
+        """
+        Gets all currencies owned by the user.
+
+        Parameters
+        ----------
+        ctx : Context
+            The context of the command.
+        user : discord.User | int
+            The user who owns the currencies.
+
+        Returns
+        -------
+        List[Currency]
+            The currencies owned by the user.
+        """
+        async with ctx.bot.pool.acquire() as con:
+            id = user.id if isinstance(user, discord.User) else user
+            records = await con.fetch("SELECT * FROM currencies WHERE owner = $1", id)
+            return [cls(ctx, record) for record in records]

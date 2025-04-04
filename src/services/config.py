@@ -7,7 +7,7 @@ from discord.ext import commands
 from discord.ext.commands import MissingPermissions
 
 import utils
-from services.currency import Currency
+from services import Currency
 from utils.errors import NoCurrenciesError, SimilarCurrencyError, TooManyCurrenciesError
 
 if TYPE_CHECKING:

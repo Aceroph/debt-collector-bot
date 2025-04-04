@@ -6,8 +6,7 @@ import discord
 import regex
 from discord.ext import commands
 
-from services.config import Config
-from services.currency import Currency
+from services import Config, Currency
 from utils import CurrencyConverter, currency_autocomplete, get_accent_color, is_sudo
 from utils.errors import NoCurrenciesError
 from views.currency_management import AddCurrencyView, DeleteCurrencyView

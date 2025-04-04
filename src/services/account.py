@@ -5,8 +5,7 @@ from discord.abc import User
 from discord.ext import commands
 from discord.ext.commands import NotOwner
 
-from services.config import Config
-from services.currency import Currency
+from services import Config, Currency
 from utils.errors import NoCurrenciesError
 
 if TYPE_CHECKING:

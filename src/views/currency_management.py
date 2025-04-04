@@ -4,8 +4,7 @@ import discord
 from discord.ext import commands
 from discord.ui import Item
 
-from services.config import Config
-from services.currency import Currency
+from services import Config, Currency
 from utils import errors
 
 if TYPE_CHECKING:
