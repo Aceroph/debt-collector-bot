@@ -1,7 +1,7 @@
 from sys import getsizeof
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List
 
-from discord import User
+from discord import Guild, Member, User
 from discord.ext.commands import Context
 
 from services import Config, Currency
@@ -15,20 +15,40 @@ class Cache:
         self._guild_currencies: Dict[int, List[Currency]] = {}
         self._user_currencies: Dict[int, List[Currency]] = {}
 
+    async def sync(
+        self, ctx: Context["DebtBot"], synced: User | Member | Guild
+    ) -> None:
+        """
+        Syncs the provided user/guild's cache with the database.
+
+        Parameters
+        ----------
+        synced : User | Member | Guild
+            Who to sync.
+        """
+        if isinstance(synced, User | Member):
+            self._user_currencies[synced.id] = await Currency.get_user_currencies(
+                ctx, synced.id
+            )
+
+        if isinstance(synced, Guild) or not ctx.guild:
+            config = await Config.get(ctx)
+            self._guild_currencies[synced.id] = await config.get_currencies()
+
     def get_total_guilds(self) -> int:
-        """Returns the number of guild currencies in cache"""
+        """Returns the number of guild currencies in cache."""
         return len(self._guild_currencies)
 
     def get_total_users(self) -> int:
-        """Returns the number of user currencies in cache"""
+        """Returns the number of user currencies in cache."""
         return len(self._guild_currencies)
 
-    def sizeof_guilds(self) -> int:
-        """Returns the size of the cached guild currencies"""
+    def get_sizeof_guilds(self) -> int:
+        """Returns the size of the cached guild currencies."""
         return getsizeof(self._guild_currencies)
 
-    def sizeof_users(self) -> int:
-        """Returns the size of the cached user currencies"""
+    def get_sizeof_users(self) -> int:
+        """Returns the size of the cached user currencies."""
         return getsizeof(self._user_currencies)
 
     async def get_guild_currencies(self, ctx: Context["DebtBot"]) -> List[Currency]:
@@ -55,9 +75,7 @@ class Cache:
 
         return currencies
 
-    async def get_user_currencies(
-        self, ctx: Context["DebtBot"], user: Optional[User | int] = None
-    ) -> List[Currency]:
+    async def get_user_currencies(self, ctx: Context["DebtBot"]) -> List[Currency]:
         """
         Returns the currencies owned by the user.
 
@@ -65,18 +83,16 @@ class Cache:
         ----------
         ctx : Context["DebtBot"]
             The context of the command.
-        user : Optional[User]=None
-            The user who owns the currencies, defaults to command author.
 
         Returns
         -------
         List[Currency]
             The currencies owned by the user.
         """
-        id = user.id if isinstance(user, User) else user if user else ctx.author.id
-        currencies = self._user_currencies.get(id)
+        currencies = self._user_currencies.get(ctx.author.id)
 
         if not currencies:
-            currencies = await Currency.get_user_currencies(ctx, id)
+            currencies = await Currency.get_user_currencies(ctx, ctx.author.id)
+            self._user_currencies[ctx.author.id] = currencies
 
         return currencies

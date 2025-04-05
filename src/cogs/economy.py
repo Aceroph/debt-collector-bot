@@ -2,11 +2,12 @@ import datetime
 from typing import TYPE_CHECKING, Optional
 
 import discord
-from discord import Member, User
+from discord import Member, User, app_commands
 from discord.ext import commands
 
 from services import Account, Config, Currency
-from utils import CurrencyConverter, currency_autocomplete, get_accent_color
+from utils import CurrencyConverter, get_accent_color
+from utils.completions import guild_currencies
 from utils.errors import NotEnoughMoneyError
 
 if TYPE_CHECKING:
@@ -15,8 +16,8 @@ if TYPE_CHECKING:
 
 class Economy(commands.Cog):
     @commands.hybrid_command(aliases=["bal", "money"])
-    @discord.app_commands.autocomplete(currency=currency_autocomplete)
-    @discord.app_commands.describe(
+    @app_commands.autocomplete(currency=guild_currencies)
+    @app_commands.describe(
         user="The one you're trying to spy on.", currency="The currency to show only."
     )
     async def balance(
@@ -52,8 +53,8 @@ class Economy(commands.Cog):
         await ctx.reply(embed=embed, mention_author=False)
 
     @commands.hybrid_command(name="update", aliases=["add", "remove"])
-    @discord.app_commands.autocomplete(currency=currency_autocomplete)
-    @discord.app_commands.describe(
+    @app_commands.autocomplete(currency=guild_currencies)
+    @app_commands.describe(
         amount="The amount of money to add/remove.",
         currency="The currency affected.",
         user="The user to update, defaults to yourself.",
@@ -84,8 +85,8 @@ class Economy(commands.Cog):
         await ctx.reply(embed=embed, mention_author=False)
 
     @commands.hybrid_command()
-    @discord.app_commands.autocomplete(currency=currency_autocomplete)
-    @discord.app_commands.describe(
+    @app_commands.autocomplete(currency=guild_currencies)
+    @app_commands.describe(
         amount="The amount of money to spend.",
         currency="The currency to spend.",
     )

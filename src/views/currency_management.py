@@ -33,15 +33,22 @@ class AddCurrencyView(ManageCurrencyView):
 
     @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
     @Config.has_permission("manage_currencies")
-    async def yes(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
+    async def yes(
+        self, interaction: discord.Interaction["DebtBot"], _: discord.ui.Button
+    ) -> None:
+        assert interaction.guild
         config = await Config.get(self._ctx)
         await config.add_currency(self._currency)
+
+        await interaction.client.cache.sync(self._ctx, interaction.guild)
 
         if interaction.message:
             await interaction.message.delete()
 
     @discord.ui.button(label="No", style=discord.ButtonStyle.red)
-    async def no(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
+    async def no(
+        self, interaction: discord.Interaction["DebtBot"], _: discord.ui.Button
+    ) -> None:
         if interaction.user.id != self._ctx.author.id:
             raise commands.NotOwner("You do not own this currency")
 
@@ -55,10 +62,10 @@ class DeleteCurrencyView(ManageCurrencyView):
 
     @discord.ui.button(label="Delete", style=discord.ButtonStyle.red)
     async def delete(
-        self, interaction: discord.Interaction, _: discord.ui.Button
+        self, interaction: discord.Interaction["DebtBot"], _: discord.ui.Button
     ) -> None:
         if self.currency.owner_id != interaction.user.id:
-            raise NotOwner("You do not own this currency")
+            raise commands.NotOwner("You do not own this currency")
 
         async with self._ctx.bot.pool.acquire() as con:
             await con.execute("DELETE FROM currencies WHERE id = $1;", self.currency.id)
@@ -72,15 +79,18 @@ class DeleteCurrencyView(ManageCurrencyView):
                 "UPDATE guildconfigs SET currencies = array_remove(currencies, $1);",
                 self.currency.id,
             )
-        await self._ctx.bot.update_cache()
+
+        await interaction.client.cache.sync(self._ctx, interaction.user)
 
         if interaction.message:
             await interaction.message.delete()
 
     @discord.ui.button(label="No", style=discord.ButtonStyle.gray)
-    async def no(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
+    async def no(
+        self, interaction: discord.Interaction["DebtBot"], _: discord.ui.Button
+    ) -> None:
         if self.currency.owner_id != interaction.user.id:
-            raise NotOwner("You do not own this currency")
+            raise commands.NotOwner("You do not own this currency")
 
         if interaction.message:
             await interaction.message.delete()

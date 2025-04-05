@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, Literal, Optional
 import discord
 from discord.ext import commands
 
+from utils.utils import pretty_size
+
 if TYPE_CHECKING:
     from main import DebtBot
 
@@ -20,6 +22,25 @@ class Admin(commands.Cog):
                 output = "No output"
 
             await ctx.reply(output, mention_author=False)
+
+    @commands.is_owner()
+    @commands.command()
+    async def cache(self, ctx: commands.Context["DebtBot"]) -> None:
+        tgc = ctx.bot.cache.get_total_guilds()
+        tuc = ctx.bot.cache.get_total_users()
+        sgc = ctx.bot.cache.get_sizeof_guilds()
+        suc = ctx.bot.cache.get_sizeof_users()
+        tc = tgc + tuc
+        sc = sgc + suc
+
+        msg = (
+            "```\nCached currencies\n"
+            f"| Guild currencies : {tgc} ({pretty_size(sgc)})\n"
+            f"| User currencies : {tuc} ({pretty_size(suc)})\n"
+            f"| All currencies : {tc} ({pretty_size(sc)})```"
+        )
+
+        await ctx.reply(msg, mention_author=False)
 
     @commands.command()
     @commands.guild_only()

@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Literal
 
 from discord.ext import commands
 
-from services import Config, Currency
+import services
 from utils.errors import CurrencyNotFoundError
 
 if TYPE_CHECKING:
@@ -15,12 +15,12 @@ class CurrencyConverter(commands.Converter):
 
     async def convert(
         self, ctx: commands.Context["DebtBot"], argument: str
-    ) -> Currency:
+    ) -> "services.Currency":
         async with ctx.bot.pool.acquire() as con:
-            config = await Config.get(ctx)
+            config = await services.Config.get(ctx)
 
             try:
-                return await Currency.get(ctx, int(argument))
+                return await services.Currency.get(ctx, int(argument))
             except ValueError:
                 pass
 
@@ -48,4 +48,4 @@ class CurrencyConverter(commands.Converter):
             if not record:
                 raise CurrencyNotFoundError
 
-            return Currency(ctx, record)
+            return services.Currency(ctx, record)

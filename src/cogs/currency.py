@@ -4,10 +4,12 @@ from typing import TYPE_CHECKING
 
 import discord
 import regex
+from discord import app_commands
 from discord.ext import commands
 
 from services import Config, Currency
-from utils import CurrencyConverter, currency_autocomplete, get_accent_color, is_sudo
+from utils import CurrencyConverter, get_accent_color, is_sudo
+from utils.completions import guild_currencies, user_currencies
 from utils.errors import NoCurrenciesError
 from views.currency_management import AddCurrencyView, DeleteCurrencyView
 
@@ -40,7 +42,7 @@ class CurrencyCog(commands.Cog):
         await ctx.reply(embed=embed, mention_author=False)
 
     @currencies.command("create")
-    @discord.app_commands.describe(
+    @app_commands.describe(
         name="The name of your currency.", icon="The icon for your currency."
     )
     async def currencies_create(
@@ -79,7 +81,8 @@ class CurrencyCog(commands.Cog):
         )
 
     @currencies.command("delete")
-    @discord.app_commands.describe(currency="The ID of the currency to delete.")
+    @app_commands.autocomplete(currency=user_currencies)
+    @app_commands.describe(currency="The ID of the currency to delete.")
     async def currency_delete(self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter("owned")) -> None:  # type: ignore
         """Deletes a currency you created."""
         assert isinstance(currency, Currency)
@@ -105,7 +108,7 @@ class CurrencyCog(commands.Cog):
 
     @Config.has_permission("manage_currencies")
     @currencies.command("add")
-    @discord.app_commands.describe(currency="The ID of the currency to add.")
+    @app_commands.describe(currency="The ID of the currency to add.")
     async def currencies_add(
         self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter
     ) -> None:
@@ -116,8 +119,8 @@ class CurrencyCog(commands.Cog):
 
     @Config.has_permission("manage_currencies")
     @currencies.command("remove")
-    @discord.app_commands.autocomplete(currency=currency_autocomplete)
-    @discord.app_commands.describe(currency="The ID of the currency to remove.")
+    @app_commands.autocomplete(currency=guild_currencies)
+    @app_commands.describe(currency="The ID of the currency to remove.")
     async def currencies_remove(
         self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter("guild")  # type: ignore
     ) -> None:
@@ -127,7 +130,7 @@ class CurrencyCog(commands.Cog):
         await config.remove_currency(currency)
 
     @currencies.command("search")
-    @discord.app_commands.describe(query="Your searching query.")
+    @app_commands.describe(query="Your searching query.")
     async def currencies_search(
         self, ctx: commands.Context["DebtBot"], *, query: str | None = None
     ) -> None:
@@ -156,7 +159,7 @@ class CurrencyCog(commands.Cog):
         await ctx.reply(embed=embed, mention_author=False)
 
     @currencies.command("info")
-    @discord.app_commands.describe(currency="The currency to look into.")
+    @app_commands.describe(currency="The currency to look into.")
     async def currencies_info(
         self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter
     ) -> None:

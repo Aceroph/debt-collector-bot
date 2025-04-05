@@ -7,6 +7,7 @@ import discord
 from asyncpg.connection import traceback
 from discord.ext import commands
 
+import services.cache as cache
 from cogs import EXTENSIONS
 from utils import errors
 
@@ -24,10 +25,10 @@ class DebtBot(commands.Bot):
     def __init__(self, intents: discord.Intents) -> None:
         super().__init__(prefix, intents=intents)
         self.pool: asyncpg.Pool
+        self.cache = cache.Cache()
         self.on_command_error = errors.global_error_handler
         self.logger = logging.getLogger("discord")
         self.base_prefix = os.environ.get("BOT_PREFIX", "$")
-        self.cached_currencies = []
 
     async def setup_hook(self) -> None:
         # Setup db pool

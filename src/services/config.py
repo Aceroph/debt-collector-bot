@@ -6,8 +6,8 @@ from asyncpg import Record
 from discord.ext import commands
 from discord.ext.commands import MissingPermissions
 
+import services
 import utils
-from services import Currency
 from utils.errors import NoCurrenciesError, SimilarCurrencyError, TooManyCurrenciesError
 
 if TYPE_CHECKING:
@@ -36,7 +36,7 @@ class Config:
     def currencies(self) -> List[int]:
         return self._currencies
 
-    async def get_currencies(self) -> List[Currency]:
+    async def get_currencies(self) -> "List[services.Currency]":
         """
         Gets all the currencies.
 
@@ -55,7 +55,7 @@ class Config:
                 "SELECT * FROM currencies WHERE id = any($1::integer[]);",
                 self.currencies,
             )
-            return [Currency(self._ctx, r) for r in records]
+            return [services.Currency(self._ctx, r) for r in records]
 
     @classmethod
     async def get(cls, ctx: commands.Context["DebtBot"]) -> Self:
@@ -89,7 +89,7 @@ class Config:
 
     async def add_currency(
         self,
-        currency: Currency | int,
+        currency: "services.Currency | int",
     ) -> None:
         """
         Adds a currency to the guild.
@@ -106,8 +106,8 @@ class Config:
         """
         currency = (
             currency
-            if isinstance(currency, Currency)
-            else await Currency.get(self._ctx, currency)
+            if isinstance(currency, services.Currency)
+            else await services.Currency.get(self._ctx, currency)
         )
 
         if any(
@@ -137,7 +137,7 @@ class Config:
 
     async def remove_currency(
         self,
-        currency: Currency | int,
+        currency: "services.Currency | int",
     ) -> None:
         """
         Removes a currency from the guild.
@@ -154,11 +154,11 @@ class Config:
         """
         currency = (
             currency
-            if isinstance(currency, Currency)
-            else await Currency.get(self._ctx, currency)
+            if isinstance(currency, services.Currency)
+            else await services.Currency.get(self._ctx, currency)
         )
 
-        config = await Config.get(self._ctx)
+        config = await services.Config.get(self._ctx)
         if not currency.id in config.currencies:
             raise NoCurrenciesError
 
@@ -187,13 +187,13 @@ class Config:
                 match permission:
                     case "banker":
                         if isinstance(ctx, discord.Interaction):
-                            currency: Currency = args[0].currency
+                            currency: "services.Currency" = args[0].currency
                         elif len(ctx.args) > 0:
-                            currency: Currency = [
+                            currency: "services.Currency" = [
                                 arg for arg in ctx.args if hasattr(arg, "allowed_roles")
                             ][0]
                         else:
-                            currency: Currency = ctx.kwargs["currency"]
+                            currency: "services.Currency" = ctx.kwargs["currency"]
 
                         if (
                             currency.owner_id == author.id

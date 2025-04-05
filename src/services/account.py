@@ -5,7 +5,7 @@ from discord.abc import User
 from discord.ext import commands
 from discord.ext.commands import NotOwner
 
-from services import Config, Currency
+import services
 from utils.errors import NoCurrenciesError
 
 if TYPE_CHECKING:
@@ -48,7 +48,7 @@ class Account:
         cls,
         ctx: commands.Context["DebtBot"],
         user: User | int,
-        currency: Currency | int,
+        currency: "services.Currency | int",
     ) -> Self:
         """
         Returns an account of the specified currency.
@@ -68,7 +68,9 @@ class Account:
             The account of the specified currency.
         """
         account_id = user if isinstance(user, int) else user.id
-        currency_id = currency.id if isinstance(currency, Currency) else currency
+        currency_id = (
+            currency.id if isinstance(currency, services.Currency) else currency
+        )
 
         async with ctx.bot.pool.acquire() as con:
             record = await con.fetchrow(
@@ -109,7 +111,7 @@ class Account:
         account_id = user if isinstance(user, int) else user.id
 
         async with ctx.bot.pool.acquire() as con:
-            config = await Config.get(ctx)
+            config = await services.Config.get(ctx)
             if len(config.currencies) == 0:
                 raise NoCurrenciesError
 

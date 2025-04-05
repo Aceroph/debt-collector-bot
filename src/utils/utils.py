@@ -1,3 +1,4 @@
+from math import log10, pow
 from typing import TYPE_CHECKING, Union
 
 import discord
@@ -5,6 +6,14 @@ from discord.ext import commands
 
 if TYPE_CHECKING:
     from main import DebtBot
+
+
+def pretty_size(size: int) -> str:
+    """Formats the size into a prettier format that uses numerical prefixes."""
+    prefixes = ["", "k", "M", "G"]
+    power = int(log10(size) / 3)
+    sized = size / pow(10, power * 3)
+    return f"{sized:,.2f} {prefixes[power]}B"
 
 
 def get_accent_color(user: Union[discord.User, discord.Member]) -> discord.Color:

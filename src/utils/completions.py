@@ -1,24 +1,32 @@
-from typing import List
+from typing import TYPE_CHECKING, List
 
 import discord
-from asyncpg import Pool
 from discord import app_commands
+from discord.ext.commands import Context
+
+if TYPE_CHECKING:
+    from main import DebtBot
 
 
-async def currency_autocomplete(
-    interaction: discord.Interaction,
-    current: str,
+async def user_currencies(
+    interaction: discord.Interaction["DebtBot"],
+    _: str,
 ) -> List[app_commands.Choice[str]]:
-    pattern = f"%{current}%"
-    pool: Pool = getattr(interaction.client, "pool")
-    async with pool.acquire() as con:
-        records = await con.fetch(
-            "SELECT id, name FROM currencies WHERE name ILIKE $1 OR icon ILIKE $2 LIMIT 25;",
-            pattern,
-            current,
-        )
+    ctx = await Context.from_interaction(interaction)
+    currencies = await interaction.client.cache.get_user_currencies(ctx)
+    return [
+        app_commands.Choice(name=currency.name, value=str(currency.id))
+        for currency in currencies
+    ]
 
-        return [
-            app_commands.Choice(name=record["name"], value=str(record["id"]))
-            for record in records
-        ]
+
+async def guild_currencies(
+    interaction: discord.Interaction["DebtBot"], current: str
+) -> List[app_commands.Choice[str]]:
+    ctx = await Context.from_interaction(interaction)
+    currencies = await interaction.client.cache.get_guild_currencies(ctx)
+    return [
+        app_commands.Choice(name=currency.name, value=str(currency.id))
+        for currency in currencies
+        if currency.name.lower().startswith(current.lower())
+    ]
