@@ -6,8 +6,9 @@ from discord import Member, User, app_commands
 from discord.ext import commands
 
 from services import Account, Config, Currency
-from utils import CurrencyConverter, get_accent_color
-from utils.completions import guild_currencies
+from services.currency import CurrencyWithAmount
+from utils import get_accent_color
+from utils.completions import currency_with_amount, guild_currencies
 from utils.errors import NotEnoughMoneyError
 
 if TYPE_CHECKING:
@@ -24,7 +25,8 @@ class Economy(commands.Cog):
         self,
         ctx: commands.Context["DebtBot"],
         user: Optional[Member | User] = None,
-        currency: CurrencyConverter | None = None,
+        *,
+        currency: Currency | None = None,
     ) -> None:
         """Returns your balance."""
         _user = user or ctx.author
@@ -52,19 +54,19 @@ class Economy(commands.Cog):
 
         await ctx.reply(embed=embed, mention_author=False)
 
-    @commands.hybrid_command(name="update", aliases=["add", "remove"])
-    @app_commands.autocomplete(currency=guild_currencies)
+    @commands.hybrid_command(name="update")
+    @app_commands.autocomplete(currency=currency_with_amount)
+    @app_commands.rename(currency="amount")
     @app_commands.describe(
-        amount="The amount of money to add/remove.",
-        currency="The currency affected.",
+        currency="The amount of currency changed.",
         user="The user to update, defaults to yourself.",
     )
     @Config.has_permission("banker")
     async def update_account(
         self,
         ctx: commands.Context["DebtBot"],
-        amount: int,
-        currency: CurrencyConverter,
+        *,
+        currency: CurrencyWithAmount,
         user: Optional[Member | User] = None,
     ) -> None:
         """Adds money to an account, super legit."""
@@ -72,10 +74,12 @@ class Economy(commands.Cog):
         assert isinstance(currency, Currency)
         account = await Account.get(ctx, _user, currency)
         old_money = account.wallet
-        await account.add_money(amount, True, "printed" if amount > 0 else "burned")
+        await account.add_money(
+            currency.amount, True, "printed" if currency.amount > 0 else "burned"
+        )
 
         embed = discord.Embed(
-            title="Printed money" if amount > 0 else "Burned money",
+            title="Printed money" if currency.amount > 0 else "Burned money",
             description=f"> {old_money:,} → {account.wallet:,} {currency.icon}",
             color=get_accent_color(_user),
             timestamp=datetime.datetime.now(),
@@ -85,22 +89,22 @@ class Economy(commands.Cog):
         await ctx.reply(embed=embed, mention_author=False)
 
     @commands.hybrid_command()
-    @app_commands.autocomplete(currency=guild_currencies)
+    @app_commands.autocomplete(currency=currency_with_amount)
+    @app_commands.rename(currency="amount")
     @app_commands.describe(
-        amount="The amount of money to spend.",
-        currency="The currency to spend.",
+        currency="The amount of to spend.",
     )
     async def spend(
-        self, ctx: commands.Context["DebtBot"], amount: int, currency: CurrencyConverter
+        self, ctx: commands.Context["DebtBot"], *, currency: CurrencyWithAmount
     ) -> None:
         """Spends money, if you have it."""
         assert isinstance(currency, Currency)
         account = await Account.get(ctx, ctx.author, currency)
         old_money = account.wallet
-        if abs(amount) > old_money:
-            raise NotEnoughMoneyError(old_money - amount, currency.icon)
+        if abs(currency.amount) > old_money:
+            raise NotEnoughMoneyError(old_money - currency.amount, currency.icon)
 
-        await account.add_money(-abs(amount), True, reason="spent")
+        await account.add_money(-abs(currency.amount), True, reason="spent")
 
         embed = discord.Embed(
             title="Spent money",

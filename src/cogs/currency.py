@@ -8,7 +8,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from services import Config, Currency
-from utils import CurrencyConverter, get_accent_color, is_sudo
+from utils import get_accent_color, is_sudo
 from utils.completions import guild_currencies, user_currencies
 from utils.errors import NoCurrenciesError
 from views.currency_management import AddCurrencyView, DeleteCurrencyView
@@ -83,7 +83,9 @@ class CurrencyCog(commands.Cog):
     @currencies.command("delete")
     @app_commands.autocomplete(currency=user_currencies)
     @app_commands.describe(currency="The ID of the currency to delete.")
-    async def currency_delete(self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter("owned")) -> None:  # type: ignore
+    async def currency_delete(
+        self, ctx: commands.Context["DebtBot"], currency: Currency
+    ) -> None:
         """Deletes a currency you created."""
         assert isinstance(currency, Currency)
         if not (currency.owner_id == ctx.author.id or is_sudo(ctx)):
@@ -110,7 +112,7 @@ class CurrencyCog(commands.Cog):
     @currencies.command("add")
     @app_commands.describe(currency="The ID of the currency to add.")
     async def currencies_add(
-        self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter
+        self, ctx: commands.Context["DebtBot"], currency: Currency
     ) -> None:
         """Adds an existing currency to the current server, with a limit of 5."""
         config = await Config.get(ctx)
@@ -122,7 +124,7 @@ class CurrencyCog(commands.Cog):
     @app_commands.autocomplete(currency=guild_currencies)
     @app_commands.describe(currency="The ID of the currency to remove.")
     async def currencies_remove(
-        self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter("guild")  # type: ignore
+        self, ctx: commands.Context["DebtBot"], currency: Currency
     ) -> None:
         """Removes an existing currency to the current server."""
         config = await Config.get(ctx)
@@ -161,7 +163,7 @@ class CurrencyCog(commands.Cog):
     @currencies.command("info")
     @app_commands.describe(currency="The currency to look into.")
     async def currencies_info(
-        self, ctx: commands.Context["DebtBot"], currency: CurrencyConverter
+        self, ctx: commands.Context["DebtBot"], currency: Currency
     ) -> None:
         """Salvages info on currencies"""
         assert isinstance(currency, Currency)

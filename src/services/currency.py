@@ -1,10 +1,13 @@
+import difflib
+import re
 from typing import TYPE_CHECKING, List, Self
 
 import discord
 from asyncpg import Record
 from discord.ext import commands
 
-from utils.errors import CurrencyNotFoundError
+from services.config import Config
+from utils.errors import CurrencyNotFoundError, NoCurrenciesError
 
 if TYPE_CHECKING:
     from main import DebtBot
@@ -142,3 +145,87 @@ class Currency:
             id = user.id if isinstance(user, discord.User) else user
             records = await con.fetch("SELECT * FROM currencies WHERE owner = $1", id)
             return [cls(ctx, record) for record in records]
+
+    @classmethod
+    async def convert(cls, ctx: commands.Context["DebtBot"], argument: str) -> Self:
+        """
+        Converts an argument into a currency.
+
+        Parameters
+        ----------
+        ctx : Context["DebtBot"]
+            The context of the command.
+        argument : str
+            The argument to parse.
+
+        Returns
+        -------
+        Currency
+            The currency converted.
+
+        Raises
+        ------
+        BadArgument
+            If the argument cannot be converter to an int.
+        """
+        try:
+            return await cls.get(ctx, int(argument))
+        except ValueError:
+            raise commands.BadArgument("Invalid currency ID")
+
+
+class CurrencyWithAmount(Currency):
+    """
+    A currency with a numerical amount.
+
+    Attributes
+    ----------
+    amount : int
+        The amount of the currency.
+    """
+
+    def __init__(
+        self, ctx: commands.Context["DebtBot"], record: Record, amount: int
+    ) -> None:
+        super().__init__(ctx, record)
+        self._amount = amount
+
+    @classmethod
+    def from_currency(cls, currency: Currency, amount: int) -> Self:
+        currency_with_value = cls.__new__(cls)
+        for attr, value in currency.__dict__.items():
+            setattr(currency_with_value, attr, value)
+        currency_with_value._amount = amount
+        return currency_with_value
+
+    @property
+    def amount(self) -> int:
+        return self._amount
+
+    @classmethod
+    async def convert(cls, ctx: commands.Context["DebtBot"], argument: str) -> Self:
+        match = re.match(r"([0-9,.]+) *([a-zA-Z ]+)", argument)
+        if not match:
+            raise commands.BadArgument(
+                f"Failed to convert currency with name `{argument}`"
+            )
+
+        amount, query = match.groups()
+        amount = int(amount.replace(",", "").replace(".", ""))
+
+        config = await Config.get(ctx)
+        currencies = await config.get_currencies()
+        if len(currencies) == 0:
+            raise NoCurrenciesError
+
+        for currency in currencies:
+            if (
+                currency.icon == query
+                or difflib.SequenceMatcher(
+                    a=currency.name.lower(), b=query.lower()
+                ).ratio()
+                >= 0.9
+            ):
+                return cls.from_currency(currency, amount)
+
+        raise CurrencyNotFoundError
